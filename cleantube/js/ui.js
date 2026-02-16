@@ -244,6 +244,7 @@ var UI = (function() {
           '<div class="settings-client-id-group">' +
             '<label for="settings-google-client-id">Google OAuth クライアントID</label>' +
             '<input type="text" id="settings-google-client-id" class="settings-input" placeholder="xxxxx.apps.googleusercontent.com" value="' + Utils.escapeHtml(savedClientId || '') + '">' +
+            '<p class="settings-origin-hint">承認済みJavaScriptオリジン: <code>' + Utils.escapeHtml(window.location.origin) + '</code></p>' +
           '</div>' +
           '<div id="settings-google-login-btn" class="settings-google-login-btn"></div>';
         // クライアントID入力イベント

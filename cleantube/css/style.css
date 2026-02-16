@@ -364,10 +364,45 @@ img {
   font-weight: 500;
 }
 
+.settings-origin-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.settings-origin-hint code {
+  color: var(--accent-1);
+  background: rgba(0, 240, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  user-select: all;
+}
+
 .settings-google-login-btn {
   margin-top: 12px;
   display: flex;
   justify-content: center;
+}
+
+/* オリジンリスト（セットアップ画面） */
+.origin-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 4px;
+}
+
+.origin-list li {
+  line-height: 1.8;
+}
+
+.origin-list code {
+  color: var(--accent-1);
+  background: rgba(0, 240, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  user-select: all;
 }
 
 /* === 検索バー === */

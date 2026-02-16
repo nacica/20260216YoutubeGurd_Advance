@@ -133,6 +133,9 @@ var App = (function() {
       showHome();
     } else {
       UI.renderSetup();
+      // 現在のオリジンを表示
+      var originEl = document.getElementById('current-origin');
+      if (originEl) originEl.textContent = window.location.origin;
       // セットアップ画面で保存済みクライアントIDがあればボタン表示
       if (savedClientId) {
         var clientIdInput = document.getElementById('google-client-id-input');

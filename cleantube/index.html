@@ -30,20 +30,35 @@
       </div>
 
       <div class="setup-steps">
-        <h3>APIキーの取得手順</h3>
+        <h3>1. Googleログイン設定（OAuthクライアントID）</h3>
         <ol>
-          <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> にアクセス</li>
-          <li>プロジェクトを新規作成</li>
-          <li>「APIとサービス」→「ライブラリ」→「YouTube Data API v3」を有効化</li>
-          <li>「認証情報」→「認証情報を作成」→「APIキー」</li>
-          <li>生成されたキーをコピーして下に貼り付け</li>
+          <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> にアクセスしプロジェクトを作成</li>
+          <li>「APIとサービス」→「OAuth同意画面」→ User Type「外部」で作成</li>
+          <li>「認証情報」→「認証情報を作成」→「OAuthクライアントID」</li>
+          <li>アプリケーションの種類:「ウェブアプリケーション」</li>
+          <li>「承認済みの JavaScript 生成元」に以下を追加:
+            <ul class="origin-list">
+              <li><code id="current-origin"></code>（現在のオリジン）</li>
+            </ul>
+          </li>
+          <li>作成後、クライアントIDをコピーして下に貼り付け</li>
         </ol>
-        <p class="step-note">※ 無料枠: 1日10,000ユニット（個人利用には十分です）</p>
+        <p class="step-note">※ オリジンが未登録だと「invalid_client」エラーになります</p>
       </div>
 
       <div class="setup-input-group">
         <label for="google-client-id-input">Google OAuth クライアントID</label>
         <input type="text" id="google-client-id-input" placeholder="xxxxx.apps.googleusercontent.com">
+      </div>
+
+      <div class="setup-steps">
+        <h3>2. APIキーの取得手順</h3>
+        <ol>
+          <li>同じプロジェクトで「APIとサービス」→「ライブラリ」→「YouTube Data API v3」を有効化</li>
+          <li>「認証情報」→「認証情報を作成」→「APIキー」</li>
+          <li>生成されたキーをコピーして下に貼り付け</li>
+        </ol>
+        <p class="step-note">※ 無料枠: 1日10,000ユニット（個人利用には十分です）</p>
       </div>
       <div id="google-login-section" class="google-login-section">
         <div id="google-login-btn-container"></div>
