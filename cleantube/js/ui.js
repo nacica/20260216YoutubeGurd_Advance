@@ -204,6 +204,34 @@ var UI = (function() {
     }
   }
 
+  // --- 登録チャンネル一覧画面 ---
+  function renderSubscriptions(channels) {
+    var list = document.getElementById('subs-list');
+    list.innerHTML = '';
+    if (!channels || !channels.length) {
+      list.innerHTML = '<p class="no-results">登録チャンネルがありません</p>';
+      showScreen('subscriptions-screen');
+      return;
+    }
+    channels.forEach(function(ch) {
+      var item = document.createElement('div');
+      item.className = 'subs-item';
+      item.innerHTML =
+        '<img class="subs-avatar" src="' + Utils.escapeHtml(ch.thumbnail) + '" alt="" loading="lazy">' +
+        '<div class="subs-info">' +
+          '<div class="subs-name">' + Utils.escapeHtml(ch.title) + '</div>' +
+          '<div class="subs-desc">' + Utils.escapeHtml(ch.description) + '</div>' +
+        '</div>' +
+        '<span class="subs-arrow">&#8250;</span>';
+      item.addEventListener('click', function() {
+        App.showChannel(ch.channelId);
+      });
+      list.appendChild(item);
+    });
+    showScreen('subscriptions-screen');
+    animateCards(list);
+  }
+
   // --- 設定画面 ---
   function renderSettings() {
     var apiKeyInput = document.getElementById('settings-api-key');
@@ -420,6 +448,7 @@ var UI = (function() {
     updateRelatedVideos: updateRelatedVideos,
     renderChannel: renderChannel,
     setChannelNextPageToken: setChannelNextPageToken,
+    renderSubscriptions: renderSubscriptions,
     displayUserProfile: displayUserProfile,
     hideUserProfile: hideUserProfile,
     renderSettings: renderSettings,

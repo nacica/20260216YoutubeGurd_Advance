@@ -1240,6 +1240,72 @@ img {
   transform: scale(0.97);
 }
 
+/* === 登録チャンネル一覧 === */
+.subs-list {
+  padding: 0 16px;
+}
+
+.subs-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 0.25s;
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+}
+
+.subs-item:hover {
+  background: rgba(0, 240, 255, 0.04);
+  border-color: rgba(0, 240, 255, 0.12);
+}
+
+.subs-item:active {
+  background: rgba(0, 240, 255, 0.08);
+  transform: scale(0.98);
+}
+
+.subs-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.08);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.subs-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.subs-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subs-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.subs-arrow {
+  color: var(--text-muted);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
 /* === もっと読み込むボタン === */
 .load-more-btn {
   display: none;

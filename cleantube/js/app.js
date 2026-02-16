@@ -58,12 +58,19 @@ var App = (function() {
     if (response.access_token) {
       Storage.setAccessToken(response.access_token);
       YouTubeAPI.setAccessToken(response.access_token);
+      showSubsButton(true);
       UI.showError('YouTube APIの認証に成功しました');
       // ホーム画面にいる場合は再取得
       if (UI.getCurrentScreen() === 'home-screen') {
         showHome();
       }
     }
+  }
+
+  // 登録チャンネルボタンの表示切替
+  function showSubsButton(show) {
+    var btn = document.getElementById('subs-btn');
+    if (btn) btn.style.display = show ? 'flex' : 'none';
   }
 
   // セットアップ画面でGoogleログインボタンをレンダリング
@@ -138,6 +145,7 @@ var App = (function() {
     }
     Storage.removeAccessToken();
     YouTubeAPI.setAccessToken('');
+    showSubsButton(false);
 
     Storage.removeUserProfile();
     UI.hideUserProfile();
@@ -183,6 +191,7 @@ var App = (function() {
     var savedToken = Storage.getAccessToken();
     if (savedToken) {
       YouTubeAPI.setAccessToken(savedToken);
+      showSubsButton(true);
     }
 
     // APIキーの有無で初期画面を決定
@@ -247,6 +256,11 @@ var App = (function() {
       btn.addEventListener('click', function() {
         goBack();
       });
+    });
+
+    // 登録チャンネルボタン
+    document.getElementById('subs-btn').addEventListener('click', function() {
+      showSubscriptions();
     });
 
     // 設定ボタン
@@ -463,6 +477,25 @@ var App = (function() {
     });
   }
 
+  // --- 登録チャンネル一覧 ---
+  function showSubscriptions() {
+    if (!Storage.getAccessToken() || !YouTubeAPI.getAccessToken()) {
+      UI.showError('登録チャンネルを表示するにはログインが必要です');
+      return;
+    }
+    UI.showLoading();
+    pushHistory({ screen: 'subscriptions-screen' });
+
+    YouTubeAPI.getAllSubscriptions().then(function(channels) {
+      UI.hideLoading();
+      UI.renderSubscriptions(channels);
+    }).catch(function(err) {
+      UI.hideLoading();
+      UI.showError('登録チャンネルの取得に失敗しました: ' + err.message);
+      console.error('登録チャンネル取得エラー:', err);
+    });
+  }
+
   // --- 設定 ---
   function showSettings() {
     pushHistory({ screen: 'settings-screen' });
@@ -511,6 +544,7 @@ var App = (function() {
     showChannel: showChannel,
     goBack: goBack,
     logout: logout,
+    showSubscriptions: showSubscriptions,
     renderGoogleLoginButtonInSettings: renderGoogleLoginButtonInSettings
   };
 })();
