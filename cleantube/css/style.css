@@ -352,6 +352,24 @@ img {
   padding: 6px 0;
 }
 
+.settings-client-id-group {
+  margin-top: 12px;
+}
+
+.settings-client-id-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.settings-google-login-btn {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
 /* === 検索バー === */
 .search-bar {
   display: flex;

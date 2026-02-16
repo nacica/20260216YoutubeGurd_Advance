@@ -63,6 +63,26 @@ var App = (function() {
       statusEl.innerHTML = '<span class="login-success">' + Utils.escapeHtml(profile.name) + ' でログイン中</span>';
     }
     UI.showError(profile.name + ' でログインしました');
+    // 設定画面にいる場合は再描画
+    if (UI.getCurrentScreen() === 'settings-screen') {
+      UI.renderSettings();
+    }
+  }
+
+  // 設定画面でGoogleログインボタンをレンダリング
+  function renderGoogleLoginButtonInSettings(clientId) {
+    if (!clientId || typeof google === 'undefined' || !google.accounts) return;
+    initGoogleAuth(clientId);
+    var container = document.getElementById('settings-google-login-btn');
+    if (container) {
+      container.innerHTML = '';
+      google.accounts.id.renderButton(container, {
+        theme: 'filled_black',
+        size: 'large',
+        width: '100%',
+        text: 'signin_with'
+      });
+    }
   }
 
   // ログアウト
@@ -411,7 +431,8 @@ var App = (function() {
     showVideo: showVideo,
     showChannel: showChannel,
     goBack: goBack,
-    logout: logout
+    logout: logout,
+    renderGoogleLoginButtonInSettings: renderGoogleLoginButtonInSettings
   };
 })();
 

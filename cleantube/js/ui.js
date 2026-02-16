@@ -238,8 +238,29 @@ var UI = (function() {
           });
         }
       } else {
+        var savedClientId = Storage.getGoogleClientId();
         profileArea.innerHTML =
-          '<p class="settings-login-hint">Googleアカウントでログインしていません</p>';
+          '<p class="settings-login-hint">Googleアカウントでログインしていません</p>' +
+          '<div class="settings-client-id-group">' +
+            '<label for="settings-google-client-id">Google OAuth クライアントID</label>' +
+            '<input type="text" id="settings-google-client-id" class="settings-input" placeholder="xxxxx.apps.googleusercontent.com" value="' + Utils.escapeHtml(savedClientId || '') + '">' +
+          '</div>' +
+          '<div id="settings-google-login-btn" class="settings-google-login-btn"></div>';
+        // クライアントID入力イベント
+        var clientIdInput = document.getElementById('settings-google-client-id');
+        if (clientIdInput) {
+          clientIdInput.addEventListener('input', Utils.debounce(function() {
+            var clientId = this.value.trim();
+            if (clientId && clientId.includes('.apps.googleusercontent.com')) {
+              Storage.setGoogleClientId(clientId);
+              App.renderGoogleLoginButtonInSettings(clientId);
+            }
+          }, 500));
+          // 既にクライアントIDがあればボタン表示
+          if (savedClientId) {
+            App.renderGoogleLoginButtonInSettings(savedClientId);
+          }
+        }
       }
     }
 
