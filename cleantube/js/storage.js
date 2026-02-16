@@ -1,0 +1,146 @@
+// storage.js - localStorage管理
+var Storage = (function() {
+  var PREFIX = 'cleantube_';
+
+  function get(key, defaultValue) {
+    try {
+      var raw = localStorage.getItem(PREFIX + key);
+      if (raw === null) return defaultValue !== undefined ? defaultValue : null;
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error('Storage読み取りエラー:', e);
+      return defaultValue !== undefined ? defaultValue : null;
+    }
+  }
+
+  function set(key, value) {
+    try {
+      localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    } catch (e) {
+      console.error('Storage書き込みエラー:', e);
+    }
+  }
+
+  function remove(key) {
+    localStorage.removeItem(PREFIX + key);
+  }
+
+  // APIキー
+  function getApiKey() {
+    return get('apiKey', '');
+  }
+
+  function setApiKey(key) {
+    set('apiKey', key);
+  }
+
+  function removeApiKey() {
+    remove('apiKey');
+  }
+
+  // 地域設定
+  function getRegion() {
+    return get('region', 'JP');
+  }
+
+  function setRegion(region) {
+    set('region', region);
+  }
+
+  // Shortsフィルタ設定
+  function getShortsFilter() {
+    return get('shortsFilter', true);
+  }
+
+  function setShortsFilter(enabled) {
+    set('shortsFilter', enabled);
+  }
+
+  // APIクォータ使用量追跡
+  function addQuotaUsage(units) {
+    var today = new Date().toISOString().slice(0, 10);
+    var usage = get('quota', { date: today, used: 0 });
+    if (usage.date !== today) {
+      usage = { date: today, used: 0 };
+    }
+    usage.used += units;
+    set('quota', usage);
+  }
+
+  function getQuotaUsage() {
+    var today = new Date().toISOString().slice(0, 10);
+    var usage = get('quota', { date: today, used: 0 });
+    if (usage.date !== today) return 0;
+    return usage.used;
+  }
+
+  // GoogleクライアントID
+  function getGoogleClientId() {
+    return get('googleClientId', '');
+  }
+
+  function setGoogleClientId(clientId) {
+    set('googleClientId', clientId);
+  }
+
+  function removeGoogleClientId() {
+    remove('googleClientId');
+  }
+
+  // ユーザープロフィール
+  function getUserProfile() {
+    return get('userProfile', null);
+  }
+
+  function setUserProfile(profile) {
+    set('userProfile', profile);
+  }
+
+  function removeUserProfile() {
+    remove('userProfile');
+  }
+
+  // キャッシュクリア
+  function clearCache() {
+    var preserveKeys = [PREFIX + 'apiKey', PREFIX + 'region', PREFIX + 'shortsFilter', PREFIX + 'googleClientId', PREFIX + 'userProfile'];
+    var keys = Object.keys(localStorage);
+    keys.forEach(function(key) {
+      if (key.startsWith(PREFIX) && preserveKeys.indexOf(key) === -1) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+
+  // 全データクリア
+  function clearAll() {
+    var keys = Object.keys(localStorage);
+    keys.forEach(function(key) {
+      if (key.startsWith(PREFIX)) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+
+  return {
+    get: get,
+    set: set,
+    remove: remove,
+    getApiKey: getApiKey,
+    setApiKey: setApiKey,
+    removeApiKey: removeApiKey,
+    getRegion: getRegion,
+    setRegion: setRegion,
+    getShortsFilter: getShortsFilter,
+    setShortsFilter: setShortsFilter,
+    addQuotaUsage: addQuotaUsage,
+    getQuotaUsage: getQuotaUsage,
+    getGoogleClientId: getGoogleClientId,
+    setGoogleClientId: setGoogleClientId,
+    removeGoogleClientId: removeGoogleClientId,
+    getUserProfile: getUserProfile,
+    setUserProfile: setUserProfile,
+    removeUserProfile: removeUserProfile,
+    clearCache: clearCache,
+    clearAll: clearAll
+  };
+})();
