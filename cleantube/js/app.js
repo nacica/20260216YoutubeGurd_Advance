@@ -278,13 +278,13 @@ var App = (function() {
     UI.showLoading();
     history = [{ screen: 'home-screen' }];
 
-    YouTubeAPI.getTrending().then(function(result) {
+    YouTubeAPI.getHomeFeed().then(function(result) {
       UI.hideLoading();
       UI.renderHome(result.items);
     }).catch(function(err) {
       UI.hideLoading();
-      UI.showError('トレンド動画の取得に失敗しました: ' + err.message);
-      console.error('トレンド取得エラー:', err);
+      UI.showError('動画の取得に失敗しました: ' + err.message);
+      console.error('ホームフィード取得エラー:', err);
     });
   }
 

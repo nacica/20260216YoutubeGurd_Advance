@@ -21,7 +21,70 @@ var YouTubeAPI = (function() {
     });
   }
 
-  // トレンド動画取得
+  // 人気動画取得（カテゴリ指定可能）
+  function getPopularByCategory(regionCode, categoryId, maxResults) {
+    var params = new URLSearchParams({
+      part: 'snippet,contentDetails,statistics',
+      chart: 'mostPopular',
+      regionCode: regionCode,
+      maxResults: maxResults,
+      key: apiKey
+    });
+    if (categoryId) params.set('videoCategoryId', categoryId);
+    Storage.addQuotaUsage(1);
+    return apiFetch('/videos?' + params.toString()).then(function(data) {
+      return data.items || [];
+    });
+  }
+
+  // ホームフィード取得（複数カテゴリの人気動画をミックス）
+  function getHomeFeed(regionCode) {
+    regionCode = regionCode || Storage.getRegion();
+    // カテゴリ: 総合(なし), 音楽(10), ゲーム(20), エンタメ(24), ニュース(25), スポーツ(17)
+    var categories = [
+      { id: null, count: 10 },
+      { id: '10', count: 6 },
+      { id: '20', count: 6 },
+      { id: '24', count: 6 },
+      { id: '25', count: 4 },
+      { id: '17', count: 4 }
+    ];
+
+    var promises = categories.map(function(cat) {
+      return getPopularByCategory(regionCode, cat.id, cat.count).catch(function() {
+        return [];
+      });
+    });
+
+    return Promise.all(promises).then(function(results) {
+      var seen = {};
+      var allItems = [];
+
+      // 各カテゴリから交互に取り出して混ぜる
+      var maxLen = 0;
+      results.forEach(function(r) { if (r.length > maxLen) maxLen = r.length; });
+
+      for (var i = 0; i < maxLen; i++) {
+        for (var j = 0; j < results.length; j++) {
+          if (i < results[j].length) {
+            var item = results[j][i];
+            var vid = item.id.videoId || item.id;
+            if (!seen[vid]) {
+              seen[vid] = true;
+              allItems.push(item);
+            }
+          }
+        }
+      }
+
+      if (Storage.getShortsFilter()) {
+        allItems = allItems.filter(function(v) { return !Utils.isShorts(v); });
+      }
+      return { items: allItems };
+    });
+  }
+
+  // トレンド動画取得（後方互換）
   function getTrending(regionCode, maxResults) {
     regionCode = regionCode || Storage.getRegion();
     maxResults = maxResults || 25;
@@ -216,6 +279,7 @@ var YouTubeAPI = (function() {
   return {
     init: init,
     testApiKey: testApiKey,
+    getHomeFeed: getHomeFeed,
     getTrending: getTrending,
     search: search,
     getVideoDetails: getVideoDetails,

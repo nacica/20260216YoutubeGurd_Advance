@@ -476,10 +476,10 @@ img {
   letter-spacing: 0.5px;
 }
 
-/* === 動画グリッド（2列） === */
+/* === 動画グリッド（5列） === */
 .video-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   padding: 0 12px;
 }
@@ -1401,9 +1401,10 @@ img {
 
 /* === レスポンシブ === */
 
-/* iPhone SE (375px) */
-@media (max-width: 389px) {
+/* スマホ縦 (~479px): 2列 */
+@media (max-width: 479px) {
   .video-grid {
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     padding: 0 8px;
   }
@@ -1419,27 +1420,34 @@ img {
   }
 }
 
-/* iPhone 12/13/14 (390px) */
-@media (min-width: 390px) and (max-width: 429px) {
+/* スマホ横・小タブレット (480px~767px): 3列 */
+@media (min-width: 480px) and (max-width: 767px) {
   .video-grid {
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     padding: 0 10px;
   }
 }
 
-/* iPhone 14 Plus / 15 Pro Max (430px) */
-@media (min-width: 430px) {
+/* タブレット (768px~1023px): 4列 */
+@media (min-width: 768px) and (max-width: 1023px) {
   .video-grid {
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
-    padding: 0 12px;
+    padding: 0 16px;
+  }
+  .setup-container, .settings-container {
+    max-width: 500px;
   }
 }
 
-/* 横向き・タブレット */
-@media (min-width: 600px) {
+/* デスクトップ (1024px~): 5列 */
+@media (min-width: 1024px) {
   .video-grid {
-    grid-template-columns: repeat(3, 1fr);
-    max-width: 900px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    padding: 0 20px;
+    max-width: 1400px;
     margin: 0 auto;
   }
   .setup-container, .settings-container {
