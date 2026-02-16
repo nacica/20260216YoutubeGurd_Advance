@@ -225,25 +225,21 @@ var App = (function() {
     if (apiKey) {
       YouTubeAPI.init(apiKey);
 
-      // GIS読み込み後にトークンクライアント初期化＋自動再認証
-      if (savedClientId && savedProfile) {
-        waitForGIS(function() {
-          initGoogleAuth(savedClientId);
-          initTokenClient(savedClientId);
-          // 自動でアクセストークンを取得（ログイン済みなら同意画面スキップ）
-          requestAccessToken('showHome');
-        });
-        // GIS待ちの間はまず既存フィードで表示
-        showHome();
-      } else if (savedClientId) {
-        waitForGIS(function() {
-          initGoogleAuth(savedClientId);
-          initTokenClient(savedClientId);
-        });
-        showHome();
-      } else {
-        showHome();
+      // 保存済みアクセストークンの復元（ポップアップは出さない）
+      var savedToken = Storage.getAccessToken();
+      if (savedToken) {
+        YouTubeAPI.setAccessToken(savedToken);
       }
+
+      // GIS読み込み後にトークンクライアント初期化のみ（自動リクエストはしない）
+      if (savedClientId) {
+        waitForGIS(function() {
+          initGoogleAuth(savedClientId);
+          initTokenClient(savedClientId);
+        });
+      }
+
+      showHome();
     } else {
       UI.renderSetup();
       // 現在のオリジンを表示
