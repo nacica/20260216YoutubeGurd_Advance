@@ -100,9 +100,22 @@ var Storage = (function() {
     remove('userProfile');
   }
 
+  // アクセストークン
+  function getAccessToken() {
+    return get('accessToken', '');
+  }
+
+  function setAccessToken(token) {
+    set('accessToken', token);
+  }
+
+  function removeAccessToken() {
+    remove('accessToken');
+  }
+
   // キャッシュクリア
   function clearCache() {
-    var preserveKeys = [PREFIX + 'apiKey', PREFIX + 'region', PREFIX + 'shortsFilter', PREFIX + 'googleClientId', PREFIX + 'userProfile'];
+    var preserveKeys = [PREFIX + 'apiKey', PREFIX + 'region', PREFIX + 'shortsFilter', PREFIX + 'googleClientId', PREFIX + 'userProfile', PREFIX + 'accessToken'];
     var keys = Object.keys(localStorage);
     keys.forEach(function(key) {
       if (key.startsWith(PREFIX) && preserveKeys.indexOf(key) === -1) {
@@ -140,6 +153,9 @@ var Storage = (function() {
     getUserProfile: getUserProfile,
     setUserProfile: setUserProfile,
     removeUserProfile: removeUserProfile,
+    getAccessToken: getAccessToken,
+    setAccessToken: setAccessToken,
+    removeAccessToken: removeAccessToken,
     clearCache: clearCache,
     clearAll: clearAll
   };

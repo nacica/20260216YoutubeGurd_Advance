@@ -125,6 +125,25 @@ var Utils = (function() {
     };
   }
 
+  // NGワード判定（中国・韓国・KPOP関連）
+  var ngPattern = /中国|中華|中共|韓国|KPOP|K-POP|한국|中國|BTS|BLACKPINK|TWICE|ENHYPEN|STRAY\s*KIDS|SEVENTEEN|AESPA|IVE|LE\s*SSERAFIM|NEWJEANS|NEW\s*JEANS|韓流|華流|チャイナ|コリア/i;
+
+  function containsNGWords(text) {
+    if (!text) return false;
+    return ngPattern.test(text);
+  }
+
+  function filterNGVideos(items) {
+    if (!items || !items.length) return items;
+    return items.filter(function(item) {
+      var snippet = item.snippet;
+      if (!snippet) return true;
+      if (containsNGWords(snippet.title)) return false;
+      if (containsNGWords(snippet.channelTitle)) return false;
+      return true;
+    });
+  }
+
   return {
     parseDuration: parseDuration,
     formatDuration: formatDuration,
@@ -134,6 +153,8 @@ var Utils = (function() {
     isShorts: isShorts,
     getThumbnail: getThumbnail,
     escapeHtml: escapeHtml,
-    debounce: debounce
+    debounce: debounce,
+    containsNGWords: containsNGWords,
+    filterNGVideos: filterNGVideos
   };
 })();

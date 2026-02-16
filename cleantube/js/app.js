@@ -1,6 +1,7 @@
 // app.js - メインアプリ（ルーティング・状態管理・イベントバインド）
 var App = (function() {
   var history = []; // 画面履歴
+  var tokenClient = null; // OAuth2トークンクライアント
 
   // JWTデコード（ペイロード部分のみ）
   function decodeJwtPayload(token) {
@@ -24,6 +25,45 @@ var App = (function() {
       client_id: clientId,
       callback: handleGoogleCallback
     });
+  }
+
+  // OAuth2トークンクライアント初期化
+  function initTokenClient(clientId) {
+    if (!clientId || typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/youtube.readonly',
+      callback: handleTokenResponse
+    });
+  }
+
+  // アクセストークンリクエスト発行
+  function requestAccessToken() {
+    if (!tokenClient) {
+      var clientId = Storage.getGoogleClientId();
+      if (clientId) initTokenClient(clientId);
+    }
+    if (tokenClient) {
+      tokenClient.requestAccessToken();
+    }
+  }
+
+  // トークンレスポンスハンドラ
+  function handleTokenResponse(response) {
+    if (response.error) {
+      console.error('OAuth トークンエラー:', response.error);
+      UI.showError('YouTube APIの認証に失敗しました: ' + (response.error_description || response.error));
+      return;
+    }
+    if (response.access_token) {
+      Storage.setAccessToken(response.access_token);
+      YouTubeAPI.setAccessToken(response.access_token);
+      UI.showError('YouTube APIの認証に成功しました');
+      // ホーム画面にいる場合は再取得
+      if (UI.getCurrentScreen() === 'home-screen') {
+        showHome();
+      }
+    }
   }
 
   // セットアップ画面でGoogleログインボタンをレンダリング
@@ -67,6 +107,8 @@ var App = (function() {
     if (UI.getCurrentScreen() === 'settings-screen') {
       UI.renderSettings();
     }
+    // 自動でOAuthアクセストークンをリクエスト
+    requestAccessToken();
   }
 
   // 設定画面でGoogleログインボタンをレンダリング
@@ -87,6 +129,16 @@ var App = (function() {
 
   // ログアウト
   function logout() {
+    // アクセストークンをrevoke・削除
+    var token = Storage.getAccessToken();
+    if (token && typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+      google.accounts.oauth2.revoke(token, function() {
+        console.log('アクセストークンをrevokeしました');
+      });
+    }
+    Storage.removeAccessToken();
+    YouTubeAPI.setAccessToken('');
+
     Storage.removeUserProfile();
     UI.hideUserProfile();
     var clientId = Storage.getGoogleClientId();
@@ -124,6 +176,13 @@ var App = (function() {
     var savedClientId = Storage.getGoogleClientId();
     if (savedClientId) {
       initGoogleAuth(savedClientId);
+      initTokenClient(savedClientId);
+    }
+
+    // 保存済みアクセストークンの復元
+    var savedToken = Storage.getAccessToken();
+    if (savedToken) {
+      YouTubeAPI.setAccessToken(savedToken);
     }
 
     // APIキーの有無で初期画面を決定
@@ -278,7 +337,24 @@ var App = (function() {
     UI.showLoading();
     history = [{ screen: 'home-screen' }];
 
-    YouTubeAPI.getHomeFeed().then(function(result) {
+    var feedPromise;
+    if (Storage.getAccessToken() && YouTubeAPI.getAccessToken()) {
+      // パーソナライズドフィード（アクセストークンあり）
+      feedPromise = YouTubeAPI.getPersonalizedFeed().catch(function(err) {
+        console.error('パーソナライズドフィード取得エラー、フォールバック:', err);
+        // 認証エラーの場合はトークンをクリア
+        if (err.message && (err.message.indexOf('401') !== -1 || err.message.indexOf('403') !== -1 || err.message.indexOf('invalid') !== -1)) {
+          Storage.removeAccessToken();
+          YouTubeAPI.setAccessToken('');
+        }
+        return YouTubeAPI.getHomeFeed();
+      });
+    } else {
+      // 既存フォールバック
+      feedPromise = YouTubeAPI.getHomeFeed();
+    }
+
+    feedPromise.then(function(result) {
       UI.hideLoading();
       UI.renderHome(result.items);
     }).catch(function(err) {
