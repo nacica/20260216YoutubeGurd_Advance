@@ -2,6 +2,7 @@
 var App = (function() {
   var history = []; // 画面履歴
   var tokenClient = null; // OAuth2トークンクライアント
+  var pendingAction = null; // トークン取得後に実行するアクション
 
   // JWTデコード（ペイロード部分のみ）
   function decodeJwtPayload(token) {
@@ -18,6 +19,22 @@ var App = (function() {
     }
   }
 
+  // GISライブラリ読み込み待ち
+  function waitForGIS(callback, maxWait) {
+    maxWait = maxWait || 5000;
+    var start = Date.now();
+    function check() {
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+        callback();
+      } else if (Date.now() - start < maxWait) {
+        setTimeout(check, 200);
+      } else {
+        console.warn('GISライブラリの読み込みがタイムアウトしました');
+      }
+    }
+    check();
+  }
+
   // Google Identity Services 初期化
   function initGoogleAuth(clientId) {
     if (!clientId || typeof google === 'undefined' || !google.accounts) return;
@@ -29,16 +46,18 @@ var App = (function() {
 
   // OAuth2トークンクライアント初期化
   function initTokenClient(clientId) {
-    if (!clientId || typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;
+    if (!clientId || typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return false;
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: 'https://www.googleapis.com/auth/youtube.readonly',
       callback: handleTokenResponse
     });
+    return true;
   }
 
   // アクセストークンリクエスト発行
-  function requestAccessToken() {
+  function requestAccessToken(action) {
+    if (action) pendingAction = action;
     if (!tokenClient) {
       var clientId = Storage.getGoogleClientId();
       if (clientId) initTokenClient(clientId);
@@ -52,7 +71,11 @@ var App = (function() {
   function handleTokenResponse(response) {
     if (response.error) {
       console.error('OAuth トークンエラー:', response.error);
-      UI.showError('YouTube APIの認証に失敗しました: ' + (response.error_description || response.error));
+      // access_denied はユーザーがキャンセルした場合（エラー表示しない）
+      if (response.error !== 'access_denied') {
+        UI.showError('YouTube APIの認証に失敗しました: ' + (response.error_description || response.error));
+      }
+      pendingAction = null;
       return;
     }
     if (response.access_token) {
@@ -60,9 +83,21 @@ var App = (function() {
       YouTubeAPI.setAccessToken(response.access_token);
       showSubsButton(true);
       UI.showError('YouTube APIの認証に成功しました');
-      // ホーム画面にいる場合は再取得
-      if (UI.getCurrentScreen() === 'home-screen') {
-        showHome();
+
+      // 保留中のアクションがあれば実行
+      if (pendingAction) {
+        var action = pendingAction;
+        pendingAction = null;
+        if (action === 'showSubscriptions') {
+          showSubscriptions();
+        } else if (action === 'showHome') {
+          showHome();
+        }
+      } else {
+        // ホーム画面にいる場合は再取得
+        if (UI.getCurrentScreen() === 'home-screen') {
+          showHome();
+        }
       }
     }
   }
@@ -104,6 +139,7 @@ var App = (function() {
     };
     Storage.setUserProfile(profile);
     UI.displayUserProfile(profile);
+    showSubsButton(true);
     // セットアップ画面のログイン状態更新
     var statusEl = document.getElementById('google-login-status');
     if (statusEl) {
@@ -178,27 +214,36 @@ var App = (function() {
     var savedProfile = Storage.getUserProfile();
     if (savedProfile) {
       UI.displayUserProfile(savedProfile);
-    }
-
-    // Google Identity Services初期化
-    var savedClientId = Storage.getGoogleClientId();
-    if (savedClientId) {
-      initGoogleAuth(savedClientId);
-      initTokenClient(savedClientId);
-    }
-
-    // 保存済みアクセストークンの復元
-    var savedToken = Storage.getAccessToken();
-    if (savedToken) {
-      YouTubeAPI.setAccessToken(savedToken);
+      // ログイン済みなら☰ボタンを表示
       showSubsButton(true);
     }
 
     // APIキーの有無で初期画面を決定
     var apiKey = Storage.getApiKey();
+    var savedClientId = Storage.getGoogleClientId();
+
     if (apiKey) {
       YouTubeAPI.init(apiKey);
-      showHome();
+
+      // GIS読み込み後にトークンクライアント初期化＋自動再認証
+      if (savedClientId && savedProfile) {
+        waitForGIS(function() {
+          initGoogleAuth(savedClientId);
+          initTokenClient(savedClientId);
+          // 自動でアクセストークンを取得（ログイン済みなら同意画面スキップ）
+          requestAccessToken('showHome');
+        });
+        // GIS待ちの間はまず既存フィードで表示
+        showHome();
+      } else if (savedClientId) {
+        waitForGIS(function() {
+          initGoogleAuth(savedClientId);
+          initTokenClient(savedClientId);
+        });
+        showHome();
+      } else {
+        showHome();
+      }
     } else {
       UI.renderSetup();
       // 現在のオリジンを表示
@@ -206,16 +251,20 @@ var App = (function() {
       if (originEl) originEl.textContent = window.location.origin;
       // セットアップ画面で保存済みクライアントIDがあればボタン表示
       if (savedClientId) {
-        var clientIdInput = document.getElementById('google-client-id-input');
-        if (clientIdInput) clientIdInput.value = savedClientId;
-        renderGoogleLoginButton(savedClientId);
-        // 既にログイン済みならステータス表示
-        if (savedProfile) {
-          var statusEl = document.getElementById('google-login-status');
-          if (statusEl) {
-            statusEl.innerHTML = '<span class="login-success">' + Utils.escapeHtml(savedProfile.name) + ' でログイン中</span>';
+        waitForGIS(function() {
+          initGoogleAuth(savedClientId);
+          initTokenClient(savedClientId);
+          var clientIdInput = document.getElementById('google-client-id-input');
+          if (clientIdInput) clientIdInput.value = savedClientId;
+          renderGoogleLoginButton(savedClientId);
+          // 既にログイン済みならステータス表示
+          if (savedProfile) {
+            var statusEl = document.getElementById('google-login-status');
+            if (statusEl) {
+              statusEl.innerHTML = '<span class="login-success">' + Utils.escapeHtml(savedProfile.name) + ' でログイン中</span>';
+            }
           }
-        }
+        });
       }
     }
   }
@@ -227,7 +276,10 @@ var App = (function() {
       var clientId = this.value.trim();
       if (clientId && clientId.includes('.apps.googleusercontent.com')) {
         Storage.setGoogleClientId(clientId);
-        renderGoogleLoginButton(clientId);
+        waitForGIS(function() {
+          initTokenClient(clientId);
+          renderGoogleLoginButton(clientId);
+        });
       }
     }, 500));
 
@@ -352,15 +404,13 @@ var App = (function() {
     history = [{ screen: 'home-screen' }];
 
     var feedPromise;
-    if (Storage.getAccessToken() && YouTubeAPI.getAccessToken()) {
+    if (YouTubeAPI.getAccessToken()) {
       // パーソナライズドフィード（アクセストークンあり）
       feedPromise = YouTubeAPI.getPersonalizedFeed().catch(function(err) {
         console.error('パーソナライズドフィード取得エラー、フォールバック:', err);
         // 認証エラーの場合はトークンをクリア
-        if (err.message && (err.message.indexOf('401') !== -1 || err.message.indexOf('403') !== -1 || err.message.indexOf('invalid') !== -1)) {
-          Storage.removeAccessToken();
-          YouTubeAPI.setAccessToken('');
-        }
+        Storage.removeAccessToken();
+        YouTubeAPI.setAccessToken('');
         return YouTubeAPI.getHomeFeed();
       });
     } else {
@@ -479,7 +529,12 @@ var App = (function() {
 
   // --- 登録チャンネル一覧 ---
   function showSubscriptions() {
-    if (!Storage.getAccessToken() || !YouTubeAPI.getAccessToken()) {
+    // トークンがなければ認証フローを開始
+    if (!YouTubeAPI.getAccessToken()) {
+      if (Storage.getUserProfile() && Storage.getGoogleClientId()) {
+        requestAccessToken('showSubscriptions');
+        return;
+      }
       UI.showError('登録チャンネルを表示するにはログインが必要です');
       return;
     }
@@ -491,6 +546,13 @@ var App = (function() {
       UI.renderSubscriptions(channels);
     }).catch(function(err) {
       UI.hideLoading();
+      // 認証エラーなら再認証
+      if (err.message && (err.message.indexOf('401') !== -1 || err.message.indexOf('403') !== -1)) {
+        Storage.removeAccessToken();
+        YouTubeAPI.setAccessToken('');
+        requestAccessToken('showSubscriptions');
+        return;
+      }
       UI.showError('登録チャンネルの取得に失敗しました: ' + err.message);
       console.error('登録チャンネル取得エラー:', err);
     });
