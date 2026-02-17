@@ -207,6 +207,31 @@ var UI = (function() {
     }
   }
 
+  // --- 再生履歴画面 ---
+  function renderHistory() {
+    var grid = document.getElementById('history-grid');
+    grid.innerHTML = '';
+    var videos = Storage.getHistory();
+    if (!videos || !videos.length) {
+      grid.innerHTML = '<p class="no-results">再生履歴はありません</p>';
+      showScreen('history-screen');
+      return;
+    }
+    videos.forEach(function(video) {
+      var card = createVideoCard(video);
+      // 視聴日時を表示
+      if (video._watchedAt) {
+        var meta = card.querySelector('.card-meta');
+        if (meta) {
+          meta.textContent = Utils.formatDate(video._watchedAt) + ' に視聴';
+        }
+      }
+      grid.appendChild(card);
+    });
+    showScreen('history-screen');
+    animateCards(grid);
+  }
+
   // --- 後で見る画面 ---
   function renderWatchLater() {
     var grid = document.getElementById('watchlater-grid');
@@ -524,6 +549,7 @@ var UI = (function() {
     setChannelNextPageToken: setChannelNextPageToken,
     renderSubscriptions: renderSubscriptions,
     renderWatchLater: renderWatchLater,
+    renderHistory: renderHistory,
     displayUserProfile: displayUserProfile,
     hideUserProfile: hideUserProfile,
     renderSettings: renderSettings,

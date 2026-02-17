@@ -168,6 +168,30 @@ var Storage = (function() {
     set('watchLater', []);
   }
 
+  // 再生履歴
+  function getHistory() {
+    return get('history', []);
+  }
+
+  function addHistory(video) {
+    var list = getHistory();
+    var videoId = video.id.videoId || video.id;
+    // 既存エントリを削除（重複防止・最新を先頭に）
+    list = list.filter(function(v) {
+      var id = v.id.videoId || v.id;
+      return id !== videoId;
+    });
+    video._watchedAt = new Date().toISOString();
+    list.unshift(video);
+    // 最大200件に制限
+    if (list.length > 200) list = list.slice(0, 200);
+    set('history', list);
+  }
+
+  function clearHistory() {
+    set('history', []);
+  }
+
   // キャッシュクリア
   function clearCache() {
     var preserveKeys = [PREFIX + 'apiKey', PREFIX + 'region', PREFIX + 'shortsFilter', PREFIX + 'googleClientId', PREFIX + 'userProfile', PREFIX + 'accessToken'];
@@ -219,6 +243,9 @@ var Storage = (function() {
     addWatchLater: addWatchLater,
     removeWatchLater: removeWatchLater,
     clearWatchLater: clearWatchLater,
+    getHistory: getHistory,
+    addHistory: addHistory,
+    clearHistory: clearHistory,
     clearCache: clearCache,
     clearAll: clearAll
   };

@@ -83,6 +83,7 @@
       </div>
       <div class="header-right">
         <img id="header-avatar" class="header-avatar" src="" alt="" style="display:none">
+        <button class="header-btn" id="history-btn" aria-label="再生履歴" title="再生履歴">&#128250;</button>
         <button class="header-btn" id="watchlater-btn" aria-label="後で見る" title="後で見る">&#128337;</button>
         <button class="header-btn" id="subs-btn" aria-label="登録チャンネル" style="display:none" title="登録チャンネル">&#9776;</button>
         <button class="header-btn" id="settings-btn" aria-label="設定">&#9881;</button>
@@ -131,6 +132,17 @@
     <h2 class="section-title">動画一覧</h2>
     <div class="video-grid" id="channel-grid"></div>
     <button class="load-more-btn" id="channel-load-more">もっと見る</button>
+  </div>
+
+  <!-- ========== 再生履歴画面 ========== -->
+  <div id="history-screen" class="screen">
+    <div class="header">
+      <button class="back-btn" aria-label="戻る">&#8592; 戻る</button>
+      <span>再生履歴</span>
+      <button class="header-btn" id="history-clear-btn" aria-label="履歴をクリア" title="履歴をクリア" style="font-size:0.75rem">&#128465;</button>
+    </div>
+    <h2 class="section-title">&#128250; 再生履歴</h2>
+    <div class="video-grid" id="history-grid"></div>
   </div>
 
   <!-- ========== 後で見る画面 ========== -->

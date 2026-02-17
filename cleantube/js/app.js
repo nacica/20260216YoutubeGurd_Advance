@@ -306,6 +306,18 @@ var App = (function() {
       });
     });
 
+    // 再生履歴ボタン
+    document.getElementById('history-btn').addEventListener('click', function() {
+      showHistory();
+    });
+    document.getElementById('history-clear-btn').addEventListener('click', function() {
+      if (confirm('再生履歴をすべて削除しますか？')) {
+        Storage.clearHistory();
+        UI.renderHistory();
+        UI.showError('再生履歴をクリアしました');
+      }
+    });
+
     // 後で見るボタン
     document.getElementById('watchlater-btn').addEventListener('click', function() {
       showWatchLater();
@@ -478,6 +490,7 @@ var App = (function() {
         return;
       }
       UI.renderVideoPlayer(video, []);
+      Storage.addHistory(video);
 
       // 関連動画を非同期で取得
       YouTubeAPI.getRelatedVideos(video).then(function(result) {
@@ -565,6 +578,12 @@ var App = (function() {
     });
   }
 
+  // --- 再生履歴 ---
+  function showHistory() {
+    pushHistory({ screen: 'history-screen' });
+    UI.renderHistory();
+  }
+
   // --- 後で見る ---
   function showWatchLater() {
     pushHistory({ screen: 'watchlater-screen' });
@@ -619,6 +638,7 @@ var App = (function() {
     showChannel: showChannel,
     goBack: goBack,
     showWatchLater: showWatchLater,
+    showHistory: showHistory,
     logout: logout,
     showSubscriptions: showSubscriptions,
     renderGoogleLoginButtonInSettings: renderGoogleLoginButtonInSettings
