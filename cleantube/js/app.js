@@ -63,7 +63,13 @@ var App = (function() {
       if (clientId) initTokenClient(clientId);
     }
     if (tokenClient) {
-      tokenClient.requestAccessToken();
+      var opts = {};
+      // ログイン済みユーザーのemailをヒントに渡してアカウント選択画面をスキップ
+      var profile = Storage.getUserProfile();
+      if (profile && profile.email) {
+        opts.hint = profile.email;
+      }
+      tokenClient.requestAccessToken(opts);
     }
   }
 
