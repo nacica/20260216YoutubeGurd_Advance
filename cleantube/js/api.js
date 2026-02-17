@@ -299,9 +299,12 @@ var YouTubeAPI = (function() {
       headers: { 'Authorization': 'Bearer ' + accessToken }
     }).then(function(res) {
       if (!res.ok) {
-        return res.json().then(function(err) {
+        var status = res.status;
+        return res.json().catch(function() {
+          return { error: { message: 'HTTPエラー' } };
+        }).then(function(err) {
           var msg = (err.error && err.error.message) || 'APIエラーが発生しました';
-          throw new Error(msg);
+          throw new Error(status + ': ' + msg);
         });
       }
       return res.json();
