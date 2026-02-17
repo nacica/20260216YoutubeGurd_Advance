@@ -425,7 +425,16 @@ var App = (function() {
     var feedPromise;
     if (YouTubeAPI.getAccessToken()) {
       // パーソナライズドフィード（アクセストークンあり）
-      feedPromise = YouTubeAPI.getPersonalizedFeed().catch(function(err) {
+      feedPromise = YouTubeAPI.getPersonalizedFeed().then(function(result) {
+        // パーソナライズドフィードが空の場合（トークン期限切れ等）は公開フィードにフォールバック
+        if (!result.items || !result.items.length) {
+          console.warn('パーソナライズドフィードが空、公開フィードにフォールバック');
+          Storage.removeAccessToken();
+          YouTubeAPI.setAccessToken('');
+          return YouTubeAPI.getHomeFeed();
+        }
+        return result;
+      }).catch(function(err) {
         console.error('パーソナライズドフィード取得エラー、フォールバック:', err);
         // 認証エラーの場合はトークンをクリア
         Storage.removeAccessToken();
