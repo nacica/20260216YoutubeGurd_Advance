@@ -113,6 +113,32 @@ var Storage = (function() {
     remove('accessToken');
   }
 
+  // 非表示動画リスト
+  function getHiddenVideos() {
+    return get('hiddenVideos', []);
+  }
+
+  function addHiddenVideo(videoId) {
+    var list = getHiddenVideos();
+    if (list.indexOf(videoId) === -1) {
+      list.push(videoId);
+      set('hiddenVideos', list);
+    }
+  }
+
+  function removeHiddenVideo(videoId) {
+    var list = getHiddenVideos();
+    var idx = list.indexOf(videoId);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+      set('hiddenVideos', list);
+    }
+  }
+
+  function clearHiddenVideos() {
+    set('hiddenVideos', []);
+  }
+
   // キャッシュクリア
   function clearCache() {
     var preserveKeys = [PREFIX + 'apiKey', PREFIX + 'region', PREFIX + 'shortsFilter', PREFIX + 'googleClientId', PREFIX + 'userProfile', PREFIX + 'accessToken'];
@@ -156,6 +182,10 @@ var Storage = (function() {
     getAccessToken: getAccessToken,
     setAccessToken: setAccessToken,
     removeAccessToken: removeAccessToken,
+    getHiddenVideos: getHiddenVideos,
+    addHiddenVideo: addHiddenVideo,
+    removeHiddenVideo: removeHiddenVideo,
+    clearHiddenVideos: clearHiddenVideos,
     clearCache: clearCache,
     clearAll: clearAll
   };

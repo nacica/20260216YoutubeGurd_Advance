@@ -331,6 +331,12 @@ var App = (function() {
         UI.renderSetup();
       }
     });
+    document.getElementById('settings-clear-hidden').addEventListener('click', function() {
+      Storage.clearHiddenVideos();
+      var countEl = document.getElementById('hidden-video-count');
+      if (countEl) countEl.textContent = '0件';
+      UI.showError('非表示リストをクリアしました');
+    });
 
     // もっと読み込むボタン
     document.getElementById('search-load-more').addEventListener('click', function() {

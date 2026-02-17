@@ -29,8 +29,11 @@ var UI = (function() {
   function renderHome(videos) {
     var grid = document.getElementById('trending-grid');
     grid.innerHTML = '';
+    var hiddenList = Storage.getHiddenVideos();
     videos.forEach(function(video) {
-      grid.appendChild(createVideoCard(video));
+      var videoId = video.id.videoId || video.id;
+      if (hiddenList.indexOf(videoId) !== -1) return;
+      grid.appendChild(createVideoCard(video, true));
     });
     showScreen('home-screen');
     animateCards(grid);
@@ -244,6 +247,10 @@ var UI = (function() {
     if (shortsToggle) shortsToggle.checked = Storage.getShortsFilter();
     if (quotaDisplay) quotaDisplay.textContent = Storage.getQuotaUsage().toLocaleString() + ' / 10,000 units';
 
+    // 非表示動画数
+    var hiddenCountEl = document.getElementById('hidden-video-count');
+    if (hiddenCountEl) hiddenCountEl.textContent = Storage.getHiddenVideos().length + '件';
+
     // プロフィール表示
     var profileArea = document.getElementById('settings-profile-area');
     if (profileArea) {
@@ -299,7 +306,7 @@ var UI = (function() {
   // --- 共通UI部品 ---
 
   // 動画カード（グリッド表示用）
-  function createVideoCard(video) {
+  function createVideoCard(video, showHideBtn) {
     var card = document.createElement('div');
     card.className = 'video-card';
 
@@ -324,6 +331,7 @@ var UI = (function() {
           ' • ' +
           Utils.formatDate(snippet.publishedAt) +
         '</div>' +
+        (showHideBtn ? '<button class="card-hide-btn" title="この動画を非表示">✕ 非表示</button>' : '') +
       '</div>';
 
     // カードクリックで動画再生
@@ -341,6 +349,21 @@ var UI = (function() {
       var channelId = this.getAttribute('data-channel-id');
       if (channelId) App.showChannel(channelId);
     });
+
+    // 非表示ボタン
+    var hideBtn = card.querySelector('.card-hide-btn');
+    if (hideBtn) {
+      hideBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        Storage.addHiddenVideo(videoId);
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.8)';
+        setTimeout(function() {
+          card.remove();
+        }, 300);
+      });
+    }
 
     return card;
   }
