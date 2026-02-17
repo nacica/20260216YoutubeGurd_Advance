@@ -3,6 +3,7 @@ var App = (function() {
   var history = []; // 画面履歴
   var tokenClient = null; // OAuth2トークンクライアント
   var pendingAction = null; // トークン取得後に実行するアクション
+  var authRetryCount = 0; // 再認証試行回数（無限ループ防止）
 
   // JWTデコード（ペイロード部分のみ）
   function decodeJwtPayload(token) {
@@ -87,6 +88,7 @@ var App = (function() {
     if (response.access_token) {
       Storage.setAccessToken(response.access_token);
       YouTubeAPI.setAccessToken(response.access_token);
+      authRetryCount = 0;
       showSubsButton(true);
       UI.showError('YouTube APIの認証に成功しました');
 
@@ -156,8 +158,10 @@ var App = (function() {
     if (UI.getCurrentScreen() === 'settings-screen') {
       UI.renderSettings();
     }
-    // 自動でOAuthアクセストークンをリクエスト
-    requestAccessToken();
+    // 既にアクセストークンがなければOAuthアクセストークンをリクエスト
+    if (!YouTubeAPI.getAccessToken()) {
+      requestAccessToken();
+    }
   }
 
   // 設定画面でGoogleログインボタンをレンダリング
@@ -581,8 +585,9 @@ var App = (function() {
       UI.renderSubscriptions(channels);
     }).catch(function(err) {
       UI.hideLoading();
-      // 認証エラーなら再認証
-      if (err.message && (err.message.indexOf('401') !== -1 || err.message.indexOf('403') !== -1)) {
+      // 認証エラーなら再認証（1回まで）
+      if (err.message && (err.message.indexOf('401') !== -1 || err.message.indexOf('403') !== -1) && authRetryCount < 1) {
+        authRetryCount++;
         Storage.removeAccessToken();
         YouTubeAPI.setAccessToken('');
         requestAccessToken('showSubscriptions');
