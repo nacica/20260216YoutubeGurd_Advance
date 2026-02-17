@@ -608,11 +608,51 @@ img {
   color: var(--text-muted);
 }
 
+/* カードアクションボタン群 */
+.card-actions {
+  display: none;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.video-card:hover .card-actions {
+  display: flex;
+}
+
+/* 後で見るボタン */
+.card-watchlater-btn {
+  flex: 1;
+  padding: 4px 0;
+  background: rgba(0, 240, 255, 0.06);
+  color: var(--accent-1);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s;
+}
+
+.card-watchlater-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+}
+
+.card-watchlater-btn:active {
+  transform: scale(0.95);
+}
+
+.card-watchlater-btn.added {
+  color: var(--accent-4);
+  border-color: rgba(0, 255, 136, 0.25);
+  background: rgba(0, 255, 136, 0.06);
+  cursor: default;
+}
+
 /* 非表示ボタン */
 .card-hide-btn {
-  display: none;
-  width: 100%;
-  margin-top: 6px;
+  flex: 1;
   padding: 4px 0;
   background: rgba(255, 45, 120, 0.06);
   color: var(--accent-3);
@@ -623,10 +663,6 @@ img {
   cursor: pointer;
   font-family: inherit;
   transition: all 0.25s;
-}
-
-.video-card:hover .card-hide-btn {
-  display: block;
 }
 
 .card-hide-btn:hover {

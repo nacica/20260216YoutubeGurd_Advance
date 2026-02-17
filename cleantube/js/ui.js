@@ -207,6 +207,45 @@ var UI = (function() {
     }
   }
 
+  // --- 後で見る画面 ---
+  function renderWatchLater() {
+    var grid = document.getElementById('watchlater-grid');
+    grid.innerHTML = '';
+    var videos = Storage.getWatchLater();
+    if (!videos || !videos.length) {
+      grid.innerHTML = '<p class="no-results">後で見るリストは空です</p>';
+      showScreen('watchlater-screen');
+      return;
+    }
+    videos.forEach(function(video) {
+      var videoId = video.id.videoId || video.id;
+      var card = createVideoCard(video);
+      // 削除ボタンを追加
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'card-hide-btn';
+      removeBtn.style.display = 'block';
+      removeBtn.textContent = '\u2715 リストから削除';
+      removeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        Storage.removeWatchLater(videoId);
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.8)';
+        setTimeout(function() {
+          card.remove();
+          // 空になったらメッセージ表示
+          if (grid.querySelectorAll('.video-card').length === 0) {
+            grid.innerHTML = '<p class="no-results">後で見るリストは空です</p>';
+          }
+        }, 300);
+      });
+      card.querySelector('.card-info').appendChild(removeBtn);
+      grid.appendChild(card);
+    });
+    showScreen('watchlater-screen');
+    animateCards(grid);
+  }
+
   // --- 登録チャンネル一覧画面 ---
   function renderSubscriptions(channels) {
     var list = document.getElementById('subs-list');
@@ -331,7 +370,7 @@ var UI = (function() {
           ' • ' +
           Utils.formatDate(snippet.publishedAt) +
         '</div>' +
-        (showHideBtn ? '<button class="card-hide-btn" title="この動画を非表示">✕ 非表示</button>' : '') +
+        (showHideBtn ? '<div class="card-actions"><button class="card-watchlater-btn" title="後で見る">&#128337; 後で見る</button><button class="card-hide-btn" title="この動画を非表示">✕ 非表示</button></div>' : '') +
       '</div>';
 
     // カードクリックで動画再生
@@ -349,6 +388,18 @@ var UI = (function() {
       var channelId = this.getAttribute('data-channel-id');
       if (channelId) App.showChannel(channelId);
     });
+
+    // 後で見るボタン
+    var watchLaterBtn = card.querySelector('.card-watchlater-btn');
+    if (watchLaterBtn) {
+      watchLaterBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        Storage.addWatchLater(video);
+        this.textContent = '\u2713 追加済み';
+        this.disabled = true;
+        this.classList.add('added');
+      });
+    }
 
     // 非表示ボタン
     var hideBtn = card.querySelector('.card-hide-btn');
@@ -472,6 +523,7 @@ var UI = (function() {
     renderChannel: renderChannel,
     setChannelNextPageToken: setChannelNextPageToken,
     renderSubscriptions: renderSubscriptions,
+    renderWatchLater: renderWatchLater,
     displayUserProfile: displayUserProfile,
     hideUserProfile: hideUserProfile,
     renderSettings: renderSettings,

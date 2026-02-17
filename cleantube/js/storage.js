@@ -139,6 +139,35 @@ var Storage = (function() {
     set('hiddenVideos', []);
   }
 
+  // 後で見るリスト
+  function getWatchLater() {
+    return get('watchLater', []);
+  }
+
+  function addWatchLater(video) {
+    var list = getWatchLater();
+    var videoId = video.id.videoId || video.id;
+    for (var i = 0; i < list.length; i++) {
+      var id = list[i].id.videoId || list[i].id;
+      if (id === videoId) return;
+    }
+    list.unshift(video);
+    set('watchLater', list);
+  }
+
+  function removeWatchLater(videoId) {
+    var list = getWatchLater();
+    var filtered = list.filter(function(v) {
+      var id = v.id.videoId || v.id;
+      return id !== videoId;
+    });
+    set('watchLater', filtered);
+  }
+
+  function clearWatchLater() {
+    set('watchLater', []);
+  }
+
   // キャッシュクリア
   function clearCache() {
     var preserveKeys = [PREFIX + 'apiKey', PREFIX + 'region', PREFIX + 'shortsFilter', PREFIX + 'googleClientId', PREFIX + 'userProfile', PREFIX + 'accessToken'];
@@ -186,6 +215,10 @@ var Storage = (function() {
     addHiddenVideo: addHiddenVideo,
     removeHiddenVideo: removeHiddenVideo,
     clearHiddenVideos: clearHiddenVideos,
+    getWatchLater: getWatchLater,
+    addWatchLater: addWatchLater,
+    removeWatchLater: removeWatchLater,
+    clearWatchLater: clearWatchLater,
     clearCache: clearCache,
     clearAll: clearAll
   };

@@ -306,6 +306,11 @@ var App = (function() {
       });
     });
 
+    // 後で見るボタン
+    document.getElementById('watchlater-btn').addEventListener('click', function() {
+      showWatchLater();
+    });
+
     // 登録チャンネルボタン
     document.getElementById('subs-btn').addEventListener('click', function() {
       showSubscriptions();
@@ -560,6 +565,12 @@ var App = (function() {
     });
   }
 
+  // --- 後で見る ---
+  function showWatchLater() {
+    pushHistory({ screen: 'watchlater-screen' });
+    UI.renderWatchLater();
+  }
+
   // --- 設定 ---
   function showSettings() {
     pushHistory({ screen: 'settings-screen' });
@@ -607,6 +618,7 @@ var App = (function() {
     showVideo: showVideo,
     showChannel: showChannel,
     goBack: goBack,
+    showWatchLater: showWatchLater,
     logout: logout,
     showSubscriptions: showSubscriptions,
     renderGoogleLoginButtonInSettings: renderGoogleLoginButtonInSettings
