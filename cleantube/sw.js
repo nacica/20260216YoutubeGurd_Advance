@@ -1,5 +1,5 @@
 // Service Worker - CleanTube PWA
-const CACHE_NAME = 'cleantube-v3';
+const CACHE_NAME = 'cleantube-v4';
 const ASSETS = [
   './',
   './index.html',
