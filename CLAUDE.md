@@ -63,3 +63,8 @@ cleantube/
 - `fix:` for bug fixes
 - `ci:` for CI/deploy changes
 - Keep messages concise, in English
+
+## Deploy Rule
+- After every code change, always commit and push to `main` branch to deploy
+- Deploy command: `git add <files> && git commit -m "..." && git push origin main`
+- GitHub Pages auto-deploys on push (takes ~1-2 minutes to go live)
