@@ -507,9 +507,6 @@ var UI = (function() {
   // === フィードプレビュー ===
   var _previewObserver = null;
   var _previewCard = null;
-  var _previewIframe = null;
-  var _previewMuteBtn = null;
-  var _previewMuted = true;
   var _previewDelayTimer = null;
   var _previewCardRatios = null;
 
@@ -521,40 +518,28 @@ var UI = (function() {
     if (!videoId) return;
 
     _previewCard = card;
-    _previewMuted = true;
 
     var thumbDiv = card.querySelector('.card-thumbnail');
     if (!thumbDiv) return;
 
+    // iframeは使わずサムネイルアニメーション＋インジケーターで表示（広告ゼロ）
     var overlay = document.createElement('div');
     overlay.className = 'preview-overlay';
 
-    var origin = encodeURIComponent(window.location.origin);
-    var iframe = document.createElement('iframe');
-    iframe.className = 'preview-iframe';
-    iframe.src = 'https://www.youtube-nocookie.com/embed/' + videoId +
-      '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1&origin=' + origin;
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('allow', 'autoplay; encrypted-media');
-    _previewIframe = iframe;
-
-    var muteBtn = document.createElement('button');
-    muteBtn.className = 'preview-mute-btn';
-    muteBtn.innerHTML = '&#128263;';
-    muteBtn.setAttribute('aria-label', 'ミュート解除');
-    muteBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      _toggleFeedPreviewMute();
-    });
-    _previewMuteBtn = muteBtn;
+    var indicator = document.createElement('div');
+    indicator.className = 'preview-playing-indicator';
+    indicator.innerHTML = '<span></span><span></span><span></span><span></span>';
+    overlay.appendChild(indicator);
 
     overlay.addEventListener('click', function() {
       App.showVideo(videoId);
     });
 
-    overlay.appendChild(iframe);
-    overlay.appendChild(muteBtn);
     thumbDiv.appendChild(overlay);
+
+    // サムネイル画像にズームアニメーション
+    var img = thumbDiv.querySelector('img');
+    if (img) img.classList.add('preview-thumbnail-zoom');
   }
 
   function _hideFeedPreview() {
@@ -567,26 +552,10 @@ var UI = (function() {
       if (thumbDiv) {
         var overlay = thumbDiv.querySelector('.preview-overlay');
         if (overlay) overlay.remove();
+        var img = thumbDiv.querySelector('img');
+        if (img) img.classList.remove('preview-thumbnail-zoom');
       }
       _previewCard = null;
-      _previewIframe = null;
-      _previewMuteBtn = null;
-    }
-  }
-
-  function _toggleFeedPreviewMute() {
-    if (!_previewIframe) return;
-    _previewMuted = !_previewMuted;
-    var cmd = _previewMuted ? 'mute' : 'unMute';
-    try {
-      _previewIframe.contentWindow.postMessage(
-        JSON.stringify({ event: 'command', func: cmd, args: [] }),
-        'https://www.youtube-nocookie.com'
-      );
-    } catch (e) {}
-    if (_previewMuteBtn) {
-      _previewMuteBtn.innerHTML = _previewMuted ? '&#128263;' : '&#128266;';
-      _previewMuteBtn.setAttribute('aria-label', _previewMuted ? 'ミュート解除' : 'ミュート');
     }
   }
 
