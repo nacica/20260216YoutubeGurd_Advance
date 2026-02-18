@@ -41,7 +41,8 @@ var App = (function() {
     if (!clientId || typeof google === 'undefined' || !google.accounts) return;
     google.accounts.id.initialize({
       client_id: clientId,
-      callback: handleGoogleCallback
+      callback: handleGoogleCallback,
+      auto_select: false // 自動ログインを無効化（繰り返しポップアップ防止）
     });
   }
 
@@ -64,11 +65,11 @@ var App = (function() {
       if (clientId) initTokenClient(clientId);
     }
     if (tokenClient) {
-      var opts = {};
+      var opts = { prompt: '' }; // 同意済みの場合はポップアップをスキップ
       // ログイン済みユーザーのemailをヒントに渡してアカウント選択画面をスキップ
       var profile = Storage.getUserProfile();
       if (profile && profile.email) {
-        opts.hint = profile.email;
+        opts.login_hint = profile.email;
       }
       tokenClient.requestAccessToken(opts);
     }
@@ -159,7 +160,11 @@ var App = (function() {
       UI.renderSettings();
     }
     // 既にアクセストークンがなければOAuthアクセストークンをリクエスト
-    if (!YouTubeAPI.getAccessToken()) {
+    // localStorageにトークンがあればメモリに復元（ポップアップ不要）
+    var savedToken = Storage.getAccessToken();
+    if (savedToken) {
+      YouTubeAPI.setAccessToken(savedToken);
+    } else if (!YouTubeAPI.getAccessToken()) {
       requestAccessToken();
     }
   }
@@ -436,19 +441,20 @@ var App = (function() {
     if (YouTubeAPI.getAccessToken()) {
       // パーソナライズドフィード（アクセストークンあり）
       feedPromise = YouTubeAPI.getPersonalizedFeed().then(function(result) {
-        // パーソナライズドフィードが空の場合（トークン期限切れ等）は公開フィードにフォールバック
+        // パーソナライズドフィードが空の場合は公開フィードにフォールバック（トークンはクリアしない）
         if (!result.items || !result.items.length) {
           console.warn('パーソナライズドフィードが空、公開フィードにフォールバック');
-          Storage.removeAccessToken();
-          YouTubeAPI.setAccessToken('');
           return YouTubeAPI.getHomeFeed();
         }
         return result;
       }).catch(function(err) {
         console.error('パーソナライズドフィード取得エラー、フォールバック:', err);
-        // 認証エラーの場合はトークンをクリア
-        Storage.removeAccessToken();
-        YouTubeAPI.setAccessToken('');
+        // 認証エラー(401/403)の場合のみトークンをクリア
+        var errMsg = err.message || '';
+        if (errMsg.indexOf('401') !== -1 || errMsg.indexOf('403') !== -1) {
+          Storage.removeAccessToken();
+          YouTubeAPI.setAccessToken('');
+        }
         return YouTubeAPI.getHomeFeed();
       });
     } else {
