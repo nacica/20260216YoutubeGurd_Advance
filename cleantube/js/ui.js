@@ -37,6 +37,7 @@ var UI = (function() {
     });
     showScreen('home-screen');
     animateCards(grid);
+    initFeedPreview(grid);
   }
 
   // --- 検索結果画面 ---
@@ -57,7 +58,12 @@ var UI = (function() {
     });
 
     toggleLoadMore('search-load-more', !!searchNextPageToken);
-    if (!append) animateCards(grid);
+    if (!append) {
+      animateCards(grid);
+      initFeedPreview(grid);
+    } else {
+      observeNewFeedCards(grid);
+    }
   }
 
   // --- 動画再生画面 ---
@@ -180,7 +186,12 @@ var UI = (function() {
     });
 
     toggleLoadMore('channel-load-more', !!channelNextPageToken);
-    if (!append) animateCards(grid);
+    if (!append) {
+      animateCards(grid);
+      initFeedPreview(grid);
+    } else {
+      observeNewFeedCards(grid);
+    }
   }
 
   function setChannelNextPageToken(token) {
@@ -375,6 +386,7 @@ var UI = (function() {
     card.className = 'video-card';
 
     var videoId = video.id.videoId || video.id;
+    card.setAttribute('data-video-id', videoId);
     var snippet = video.snippet || {};
     var stats = video.statistics || {};
     var duration = video.contentDetails ? Utils.formatDuration(Utils.parseDuration(video.contentDetails.duration)) : '';
@@ -492,6 +504,148 @@ var UI = (function() {
     if (btn) btn.style.display = show ? 'block' : 'none';
   }
 
+  // === フィードプレビュー ===
+  var _previewObserver = null;
+  var _previewCard = null;
+  var _previewIframe = null;
+  var _previewMuteBtn = null;
+  var _previewMuted = true;
+  var _previewDelayTimer = null;
+  var _previewCardRatios = null;
+
+  function _showFeedPreview(card) {
+    if (_previewCard === card) return;
+    _hideFeedPreview();
+
+    var videoId = card.getAttribute('data-video-id');
+    if (!videoId) return;
+
+    _previewCard = card;
+    _previewMuted = true;
+
+    var thumbDiv = card.querySelector('.card-thumbnail');
+    if (!thumbDiv) return;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'preview-overlay';
+
+    var origin = encodeURIComponent(window.location.origin);
+    var iframe = document.createElement('iframe');
+    iframe.className = 'preview-iframe';
+    iframe.src = 'https://www.youtube-nocookie.com/embed/' + videoId +
+      '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1&origin=' + origin;
+    iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('allow', 'autoplay; encrypted-media');
+    _previewIframe = iframe;
+
+    var muteBtn = document.createElement('button');
+    muteBtn.className = 'preview-mute-btn';
+    muteBtn.innerHTML = '&#128263;';
+    muteBtn.setAttribute('aria-label', 'ミュート解除');
+    muteBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      _toggleFeedPreviewMute();
+    });
+    _previewMuteBtn = muteBtn;
+
+    overlay.addEventListener('click', function() {
+      App.showVideo(videoId);
+    });
+
+    overlay.appendChild(iframe);
+    overlay.appendChild(muteBtn);
+    thumbDiv.appendChild(overlay);
+  }
+
+  function _hideFeedPreview() {
+    if (_previewDelayTimer) {
+      clearTimeout(_previewDelayTimer);
+      _previewDelayTimer = null;
+    }
+    if (_previewCard) {
+      var thumbDiv = _previewCard.querySelector('.card-thumbnail');
+      if (thumbDiv) {
+        var overlay = thumbDiv.querySelector('.preview-overlay');
+        if (overlay) overlay.remove();
+      }
+      _previewCard = null;
+      _previewIframe = null;
+      _previewMuteBtn = null;
+    }
+  }
+
+  function _toggleFeedPreviewMute() {
+    if (!_previewIframe) return;
+    _previewMuted = !_previewMuted;
+    var cmd = _previewMuted ? 'mute' : 'unMute';
+    try {
+      _previewIframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: cmd, args: [] }),
+        'https://www.youtube-nocookie.com'
+      );
+    } catch (e) {}
+    if (_previewMuteBtn) {
+      _previewMuteBtn.innerHTML = _previewMuted ? '&#128263;' : '&#128266;';
+      _previewMuteBtn.setAttribute('aria-label', _previewMuted ? 'ミュート解除' : 'ミュート');
+    }
+  }
+
+  function _updateFeedPreview() {
+    if (!_previewCardRatios) return;
+    var bestCard = null;
+    var bestRatio = 0.4;
+    _previewCardRatios.forEach(function(ratio, card) {
+      if (ratio > bestRatio) {
+        bestRatio = ratio;
+        bestCard = card;
+      }
+    });
+    if (bestCard && bestCard !== _previewCard) {
+      if (_previewDelayTimer) clearTimeout(_previewDelayTimer);
+      _previewDelayTimer = setTimeout(function() {
+        _showFeedPreview(bestCard);
+        _previewDelayTimer = null;
+      }, 400);
+    } else if (!bestCard) {
+      if (_previewDelayTimer) {
+        clearTimeout(_previewDelayTimer);
+        _previewDelayTimer = null;
+      }
+      _hideFeedPreview();
+    }
+  }
+
+  function initFeedPreview(grid) {
+    if (!grid) return;
+    if (_previewObserver) {
+      _previewObserver.disconnect();
+      _previewObserver = null;
+    }
+    _hideFeedPreview();
+    _previewCardRatios = new Map();
+
+    _previewObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        _previewCardRatios.set(entry.target, entry.intersectionRatio);
+      });
+      _updateFeedPreview();
+    }, { threshold: [0, 0.25, 0.5, 0.75, 1.0] });
+
+    grid.querySelectorAll('.video-card').forEach(function(card) {
+      _previewObserver.observe(card);
+      card.setAttribute('data-preview-observed', '1');
+    });
+  }
+
+  function observeNewFeedCards(grid) {
+    if (!_previewObserver || !grid || !_previewCardRatios) return;
+    grid.querySelectorAll('.video-card:not([data-preview-observed])').forEach(function(card) {
+      _previewObserver.observe(card);
+      card.setAttribute('data-preview-observed', '1');
+      _previewCardRatios.set(card, 0);
+    });
+  }
+
   // カードのフェードインアニメーション
   function animateCards(container) {
     var cards = container.querySelectorAll('.video-card, .video-list-item');
@@ -561,6 +715,7 @@ var UI = (function() {
     getCurrentSearchQuery: getCurrentSearchQuery,
     getChannelNextPageToken: getChannelNextPageToken,
     getCurrentChannelId: getCurrentChannelId,
-    getCurrentScreen: getCurrentScreen
+    getCurrentScreen: getCurrentScreen,
+    observeNewFeedCards: observeNewFeedCards
   };
 })();
