@@ -467,7 +467,11 @@ var App = (function() {
       UI.renderHome(result.items);
     }).catch(function(err) {
       UI.hideLoading();
-      UI.showError('動画の取得に失敗しました: ' + err.message);
+      if (YouTubeAPI.isQuotaError(err)) {
+        UI.showError('APIクォータ上限に達しました。明日リセットされます。');
+      } else {
+        UI.showError('動画の取得に失敗しました: ' + err.message);
+      }
       console.error('ホームフィード取得エラー:', err);
     });
   }
@@ -482,7 +486,11 @@ var App = (function() {
       UI.renderSearchResults(result, query, false);
     }).catch(function(err) {
       UI.hideLoading();
-      UI.showError('検索に失敗しました: ' + err.message);
+      if (YouTubeAPI.isQuotaError(err)) {
+        UI.showError('APIクォータ上限に達しました。明日リセットされます。');
+      } else {
+        UI.showError('検索に失敗しました: ' + err.message);
+      }
       console.error('検索エラー:', err);
     });
   }

@@ -4,6 +4,7 @@ var YouTubeAPI = (function() {
   var accessToken = '';
   var baseURL = 'https://www.googleapis.com/youtube/v3';
   var cache = {};
+  var STORAGE_CACHE_PREFIX = 'cleantube_apiCache_';
 
   function init(key) {
     apiKey = key;
@@ -15,6 +16,49 @@ var YouTubeAPI = (function() {
 
   function getAccessToken() {
     return accessToken;
+  }
+
+  // --- キャッシュ（メモリ + localStorage永続化） ---
+
+  function getCache(key) {
+    // メモリキャッシュ優先
+    var entry = cache[key];
+    if (entry && Date.now() <= entry.expires) {
+      return entry.data;
+    }
+    if (entry) delete cache[key];
+
+    // localStorage永続キャッシュ
+    try {
+      var raw = localStorage.getItem(STORAGE_CACHE_PREFIX + key);
+      if (raw) {
+        var stored = JSON.parse(raw);
+        if (stored && Date.now() <= stored.expires) {
+          cache[key] = stored; // メモリにも復元
+          return stored.data;
+        }
+        localStorage.removeItem(STORAGE_CACHE_PREFIX + key);
+      }
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function setCache(key, data, ttl) {
+    var entry = { data: data, expires: Date.now() + ttl };
+    cache[key] = entry;
+    // 永続キャッシュに保存（大きすぎるデータは除外）
+    try {
+      var json = JSON.stringify(entry);
+      if (json.length < 500000) { // 500KB以下のみ
+        localStorage.setItem(STORAGE_CACHE_PREFIX + key, json);
+      }
+    } catch (e) { /* quota exceeded等は無視 */ }
+  }
+
+  // クォータ超過チェック用のエラー判定
+  function isQuotaError(err) {
+    var msg = (err && err.message) || '';
+    return msg.indexOf('quota') !== -1 || msg.indexOf('Quota') !== -1 || msg.indexOf('429') !== -1;
   }
 
   // APIキーの有効性テスト
@@ -32,6 +76,10 @@ var YouTubeAPI = (function() {
 
   // 人気動画取得（カテゴリ指定可能）
   function getPopularByCategory(regionCode, categoryId, maxResults) {
+    var cacheKey = 'popular:' + regionCode + ':' + (categoryId || '') + ':' + maxResults;
+    var cached = getCache(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
     var params = new URLSearchParams({
       part: 'snippet,contentDetails,statistics',
       chart: 'mostPopular',
@@ -42,21 +90,24 @@ var YouTubeAPI = (function() {
     if (categoryId) params.set('videoCategoryId', categoryId);
     Storage.addQuotaUsage(1);
     return apiFetch('/videos?' + params.toString()).then(function(data) {
-      return data.items || [];
+      var items = data.items || [];
+      setCache(cacheKey, items, 30 * 60 * 1000); // 30分キャッシュ
+      return items;
     });
   }
 
-  // ホームフィード取得（複数カテゴリの人気動画をミックス）
+  // ホームフィード取得（カテゴリ数を削減: 6→3）
   function getHomeFeed(regionCode) {
     regionCode = regionCode || Storage.getRegion();
-    // カテゴリ: 総合(なし), 音楽(10), ゲーム(20), エンタメ(24), ニュース(25), スポーツ(17)
+    var cacheKey = 'homeFeed:' + regionCode;
+    var cached = getCache(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
+    // カテゴリ: 総合(なし), 音楽(10), エンタメ(24) — 3カテゴリ=3ユニット
     var categories = [
-      { id: null, count: 10 },
-      { id: '10', count: 6 },
-      { id: '20', count: 6 },
-      { id: '24', count: 6 },
-      { id: '25', count: 4 },
-      { id: '17', count: 4 }
+      { id: null, count: 15 },
+      { id: '10', count: 8 },
+      { id: '24', count: 8 }
     ];
 
     var promises = categories.map(function(cat) {
@@ -90,7 +141,9 @@ var YouTubeAPI = (function() {
         allItems = allItems.filter(function(v) { return !Utils.isShorts(v); });
       }
       allItems = Utils.filterNGVideos(allItems);
-      return { items: allItems };
+      var result = { items: allItems };
+      setCache(cacheKey, result, 30 * 60 * 1000); // 30分キャッシュ
+      return result;
     });
   }
 
@@ -147,7 +200,7 @@ var YouTubeAPI = (function() {
           items: mergeAndFilter(data.items, details),
           nextPageToken: data.nextPageToken
         };
-        setCache(cacheKey, result, 5 * 60 * 1000);
+        setCache(cacheKey, result, 15 * 60 * 1000); // 15分キャッシュ
         return result;
       });
     });
@@ -155,6 +208,10 @@ var YouTubeAPI = (function() {
 
   // 動画詳細取得（複数IDをまとめて）
   function getVideoDetails(videoIds) {
+    var cacheKey = 'details:' + videoIds;
+    var cached = getCache(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
     var params = new URLSearchParams({
       part: 'snippet,contentDetails,statistics',
       id: videoIds,
@@ -162,7 +219,9 @@ var YouTubeAPI = (function() {
     });
     Storage.addQuotaUsage(1);
     return apiFetch('/videos?' + params.toString()).then(function(data) {
-      return data.items || [];
+      var items = data.items || [];
+      setCache(cacheKey, items, 30 * 60 * 1000); // 30分キャッシュ
+      return items;
     });
   }
 
@@ -175,68 +234,105 @@ var YouTubeAPI = (function() {
 
   // チャンネル情報取得
   function getChannelInfo(channelId) {
+    var cacheKey = 'chInfo:' + channelId;
+    var cached = getCache(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
     var params = new URLSearchParams({
-      part: 'snippet,statistics,brandingSettings',
+      part: 'snippet,statistics,brandingSettings,contentDetails',
       id: channelId,
       key: apiKey
     });
     Storage.addQuotaUsage(1);
     return apiFetch('/channels?' + params.toString()).then(function(data) {
-      return (data.items || [])[0] || null;
+      var ch = (data.items || [])[0] || null;
+      if (ch) setCache(cacheKey, ch, 60 * 60 * 1000); // 1時間キャッシュ
+      return ch;
     });
   }
 
-  // チャンネルの動画一覧取得
+  // チャンネルの動画一覧取得（playlistItems使用: 1ユニット。searchの100ユニットから大幅削減）
   function getChannelVideos(channelId, pageToken, maxResults) {
     maxResults = maxResults || 20;
-    var params = new URLSearchParams({
-      part: 'snippet',
-      channelId: channelId,
-      type: 'video',
-      videoDuration: 'medium',
-      order: 'date',
-      maxResults: maxResults,
-      key: apiKey
-    });
-    if (pageToken) params.set('pageToken', pageToken);
 
-    Storage.addQuotaUsage(100);
-    return apiFetch('/search?' + params.toString()).then(function(data) {
-      var videoIds = (data.items || []).map(function(i) {
-        return i.id.videoId;
-      }).filter(Boolean).join(',');
+    // まずチャンネル情報からuploadsプレイリストIDを取得
+    return getChannelInfo(channelId).then(function(channel) {
+      if (!channel || !channel.contentDetails || !channel.contentDetails.relatedPlaylists) {
+        return { items: [], nextPageToken: null };
+      }
+      var uploadsId = channel.contentDetails.relatedPlaylists.uploads;
+      if (!uploadsId) return { items: [], nextPageToken: null };
 
-      if (!videoIds) return { items: [], nextPageToken: data.nextPageToken };
+      var cacheKey = 'chVideos:' + uploadsId + ':' + (pageToken || '');
+      var cached = getCache(cacheKey);
+      if (cached) return Promise.resolve(cached);
 
-      return getVideoDetails(videoIds).then(function(details) {
-        return {
-          items: mergeAndFilter(data.items, details),
-          nextPageToken: data.nextPageToken
-        };
+      var params = new URLSearchParams({
+        part: 'snippet',
+        playlistId: uploadsId,
+        maxResults: maxResults,
+        key: apiKey
+      });
+      if (pageToken) params.set('pageToken', pageToken);
+
+      Storage.addQuotaUsage(1); // playlistItemsは1ユニット
+      return apiFetch('/playlistItems?' + params.toString()).then(function(data) {
+        var videoIds = (data.items || []).map(function(i) {
+          return i.snippet.resourceId ? i.snippet.resourceId.videoId : null;
+        }).filter(Boolean).join(',');
+
+        if (!videoIds) {
+          var emptyResult = { items: [], nextPageToken: data.nextPageToken || null };
+          setCache(cacheKey, emptyResult, 15 * 60 * 1000);
+          return emptyResult;
+        }
+
+        return getVideoDetails(videoIds).then(function(details) {
+          var items = details;
+          if (Storage.getShortsFilter()) {
+            items = items.filter(function(v) { return !Utils.isShorts(v); });
+          }
+          items = Utils.filterNGVideos(items);
+          var result = {
+            items: items,
+            nextPageToken: data.nextPageToken || null
+          };
+          setCache(cacheKey, result, 15 * 60 * 1000);
+          return result;
+        });
       });
     });
   }
 
-  // 関連動画取得（同じチャンネルの動画で代替）
+  // 関連動画取得（同チャンネルのactivities使用: 1ユニット。searchの100ユニットから削減）
   function getRelatedVideos(video) {
     if (!video || !video.snippet) return Promise.resolve({ items: [] });
-    // 動画タイトルのキーワードで検索して関連動画を取得
-    var title = video.snippet.title || '';
-    // タイトルから主要キーワードを抽出（最初の3単語程度）
-    var keywords = title.replace(/[【】\[\]「」『』\(\)（）]/g, ' ')
-                        .split(/\s+/)
-                        .filter(function(w) { return w.length > 1; })
-                        .slice(0, 3)
-                        .join(' ');
-    if (!keywords) keywords = title.slice(0, 20);
-    return search(keywords).then(function(result) {
+    var channelId = video.snippet.channelId;
+    var currentVideoId = video.id.videoId || video.id;
+    if (!channelId) return Promise.resolve({ items: [] });
+
+    var cacheKey = 'related:' + currentVideoId;
+    var cached = getCache(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
+    // 同チャンネルの最新動画をactivitiesから取得（1ユニット）
+    return getChannelActivities(channelId, 15).then(function(videoIds) {
       // 現在の動画を除外
-      var videoId = video.id.videoId || video.id;
-      result.items = result.items.filter(function(v) {
-        var vid = v.id.videoId || v.id;
-        return vid !== videoId;
-      }).slice(0, 10);
-      return result;
+      videoIds = videoIds.filter(function(id) { return id !== currentVideoId; });
+      if (!videoIds.length) return { items: [] };
+
+      return getVideoDetails(videoIds.slice(0, 10).join(',')).then(function(details) {
+        var items = details;
+        if (Storage.getShortsFilter()) {
+          items = items.filter(function(v) { return !Utils.isShorts(v); });
+        }
+        items = Utils.filterNGVideos(items);
+        var result = { items: items };
+        setCache(cacheKey, result, 30 * 60 * 1000);
+        return result;
+      });
+    }).catch(function() {
+      return { items: [] };
     });
   }
 
@@ -270,20 +366,6 @@ var YouTubeAPI = (function() {
       }
     });
     return Utils.filterNGVideos(result);
-  }
-
-  function getCache(key) {
-    var entry = cache[key];
-    if (!entry) return null;
-    if (Date.now() > entry.expires) {
-      delete cache[key];
-      return null;
-    }
-    return entry.data;
-  }
-
-  function setCache(key, data, ttl) {
-    cache[key] = { data: data, expires: Date.now() + ttl };
   }
 
   // --- OAuth認証付きAPI ---
@@ -341,7 +423,7 @@ var YouTubeAPI = (function() {
         channelIds: channels.map(function(c) { return c.channelId; }),
         nextPageToken: data.nextPageToken || null
       };
-      setCache(cacheKey, result, 5 * 60 * 1000);
+      setCache(cacheKey, result, 30 * 60 * 1000); // 30分キャッシュ
       return result;
     });
   }
@@ -359,7 +441,7 @@ var YouTubeAPI = (function() {
         if (result.nextPageToken) {
           return fetchPage(result.nextPageToken);
         }
-        setCache(cacheKey, allChannels, 5 * 60 * 1000);
+        setCache(cacheKey, allChannels, 30 * 60 * 1000); // 30分キャッシュ
         return allChannels;
       });
     }
@@ -376,6 +458,10 @@ var YouTubeAPI = (function() {
   // チャンネルのアクティビティから最新動画IDを取得（1ユニット/チャンネル）
   function getChannelActivities(channelId, maxResults) {
     maxResults = maxResults || 5;
+    var cacheKey = 'activities:' + channelId + ':' + maxResults;
+    var cached = getCache(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
     var params = new URLSearchParams({
       part: 'snippet,contentDetails',
       channelId: channelId,
@@ -390,6 +476,7 @@ var YouTubeAPI = (function() {
           videoIds.push(item.contentDetails.upload.videoId);
         }
       });
+      setCache(cacheKey, videoIds, 30 * 60 * 1000); // 30分キャッシュ
       return videoIds;
     }).catch(function() { return []; });
   }
@@ -402,8 +489,8 @@ var YouTubeAPI = (function() {
     var cached = getCache(cacheKey);
     if (cached) return Promise.resolve(cached);
 
-    // 最大30チャンネルまで（クォータ節約）
-    var targetIds = channelIds.slice(0, 30);
+    // 最大15チャンネルまで（30→15に削減でクォータ節約）
+    var targetIds = channelIds.slice(0, 15);
 
     // 各チャンネルのactivitiesから動画IDを取得（各1ユニット）
     var activityPromises = targetIds.map(function(chId) {
@@ -450,7 +537,7 @@ var YouTubeAPI = (function() {
         // NGワードフィルタ
         allDetails = Utils.filterNGVideos(allDetails);
 
-        setCache(cacheKey, allDetails, 5 * 60 * 1000);
+        setCache(cacheKey, allDetails, 30 * 60 * 1000); // 30分キャッシュ
         return allDetails;
       });
     });
@@ -471,70 +558,12 @@ var YouTubeAPI = (function() {
     Storage.addQuotaUsage(1);
     return authFetch('/videos?' + params.toString()).then(function(data) {
       var items = data.items || [];
-      setCache(cacheKey, items, 5 * 60 * 1000);
+      setCache(cacheKey, items, 30 * 60 * 1000); // 30分キャッシュ
       return items;
     });
   }
 
-  // 高評価動画から関連動画を取得
-  function getRecommendedFromLiked(likedVideos) {
-    if (!likedVideos || !likedVideos.length) return Promise.resolve([]);
-
-    var cacheKey = 'recFromLiked:' + likedVideos.map(function(v) { return v.id; }).join(',');
-    var cached = getCache(cacheKey);
-    if (cached) return Promise.resolve(cached);
-
-    var promises = likedVideos.map(function(video) {
-      var title = video.snippet.title || '';
-      var keywords = title.replace(/[【】\[\]「」『』\(\)（）]/g, ' ')
-                          .split(/\s+/)
-                          .filter(function(w) { return w.length > 1; })
-                          .slice(0, 3)
-                          .join(' ');
-      if (!keywords) keywords = title.slice(0, 20);
-
-      var params = new URLSearchParams({
-        part: 'snippet',
-        q: keywords,
-        type: 'video',
-        videoDuration: 'medium',
-        order: 'relevance',
-        regionCode: Storage.getRegion(),
-        maxResults: '5',
-        key: apiKey
-      });
-      Storage.addQuotaUsage(100);
-      return apiFetch('/search?' + params.toString()).then(function(data) {
-        return data.items || [];
-      }).catch(function() { return []; });
-    });
-
-    return Promise.all(promises).then(function(results) {
-      var allItems = [];
-      var seen = {};
-      results.forEach(function(items) {
-        items.forEach(function(item) {
-          var vid = item.id.videoId;
-          if (vid && !seen[vid]) {
-            seen[vid] = true;
-            allItems.push(item);
-          }
-        });
-      });
-
-      // 動画詳細を取得
-      var videoIds = allItems.map(function(item) { return item.id.videoId; }).filter(Boolean);
-      if (!videoIds.length) return [];
-
-      return getVideoDetails(videoIds.join(',')).then(function(details) {
-        var merged = mergeAndFilter(allItems, details);
-        setCache(cacheKey, merged, 5 * 60 * 1000);
-        return merged;
-      });
-    });
-  }
-
-  // パーソナライズドフィード
+  // パーソナライズドフィード（getRecommendedFromLikedを廃止: search5回=500ユニット節約）
   function getPersonalizedFeed() {
     var cacheKey = 'personalizedFeed';
     var cached = getCache(cacheKey);
@@ -547,31 +576,30 @@ var YouTubeAPI = (function() {
         console.error('登録チャンネル動画取得エラー:', err);
         return [];
       }),
-      getLikedVideos(5).then(function(liked) {
-        return getRecommendedFromLiked(liked);
-      }).catch(function(err) {
-        console.error('高評価関連動画取得エラー:', err);
+      // 高評価動画をそのまま混ぜる（search不要、1ユニットのみ）
+      getLikedVideos(10).catch(function(err) {
+        console.error('高評価動画取得エラー:', err);
         return [];
       })
     ]).then(function(results) {
       var subVideos = results[0];
-      var recVideos = results[1];
+      var likedVideos = results[1];
 
-      // インターリーブで混合（登録チャンネル3:推薦1の比率）
+      // インターリーブで混合（登録チャンネル4:高評価1の比率）
       var mixed = [];
       var seen = {};
-      var si = 0, ri = 0;
-      while (si < subVideos.length || ri < recVideos.length) {
-        // 登録チャンネルから3つ
-        for (var k = 0; k < 3 && si < subVideos.length; k++, si++) {
+      var si = 0, li = 0;
+      while (si < subVideos.length || li < likedVideos.length) {
+        // 登録チャンネルから4つ
+        for (var k = 0; k < 4 && si < subVideos.length; k++, si++) {
           var vid1 = subVideos[si].id.videoId || subVideos[si].id;
           if (!seen[vid1]) { seen[vid1] = true; mixed.push(subVideos[si]); }
         }
-        // 推薦から1つ
-        if (ri < recVideos.length) {
-          var vid2 = recVideos[ri].id.videoId || recVideos[ri].id;
-          if (!seen[vid2]) { seen[vid2] = true; mixed.push(recVideos[ri]); }
-          ri++;
+        // 高評価から1つ
+        if (li < likedVideos.length) {
+          var vid2 = likedVideos[li].id.videoId || likedVideos[li].id;
+          if (!seen[vid2]) { seen[vid2] = true; mixed.push(likedVideos[li]); }
+          li++;
         }
       }
 
@@ -584,7 +612,7 @@ var YouTubeAPI = (function() {
       }
 
       var result = { items: mixed };
-      setCache(cacheKey, result, 5 * 60 * 1000);
+      setCache(cacheKey, result, 30 * 60 * 1000); // 30分キャッシュ
       return result;
     });
   }
@@ -605,6 +633,7 @@ var YouTubeAPI = (function() {
     getRelatedVideos: getRelatedVideos,
     getSubscriptions: getSubscriptions,
     getAllSubscriptions: getAllSubscriptions,
-    getLikedVideos: getLikedVideos
+    getLikedVideos: getLikedVideos,
+    isQuotaError: isQuotaError
   };
 })();
