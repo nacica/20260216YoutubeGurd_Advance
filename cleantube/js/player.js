@@ -3,12 +3,14 @@ var Player = (function() {
 
   // youtube-nocookie embed プレーヤーHTMLを生成
   function createPlayer(videoId) {
+    var origin = encodeURIComponent(window.location.origin);
     return '<div class="player-wrapper">' +
       '<iframe ' +
-        'src="https://www.youtube-nocookie.com/embed/' + Utils.escapeHtml(videoId) + '?rel=0&modestbranding=1&autoplay=1&playsinline=1" ' +
+        'src="https://www.youtube-nocookie.com/embed/' + Utils.escapeHtml(videoId) + '?rel=0&autoplay=1&playsinline=1&origin=' + origin + '" ' +
         'frameborder="0" ' +
         'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" ' +
-        'allowfullscreen>' +
+        'allowfullscreen ' +
+        'referrerpolicy="strict-origin-when-cross-origin">' +
       '</iframe>' +
     '</div>';
   }
